@@ -173,12 +173,6 @@ function scale(x, oldMin, oldMax, newMin, newMax) {
 }
 
 
-/**
- * MapGenerator can generate new HeightMap by using noise function
- * @constructor
- * @param seed An Integer value, used as a seed
- * @param config A custom configuration
- */
 function MapGenerator(seed, config) {
     this._seed = null;
     this._config = {
@@ -329,203 +323,21 @@ HeightMap.prototype = {
     }
 };
 
-var _realColorMatrix = {
-    R: [[0,2],[63,9],[126,17],[127,69],[128,42],[191,115],[225,153],[250,179],[255,255]],
-    G: [[0,43],[63,62],[126,82],[127,108],[128,102],[191,128],[225,143],[250,179],[255,255]],
-    B: [[0,68],[63,92],[126,112],[127,118],[128,41],[191,77],[225,92],[250,179],[255,255]]
-};
-var _heatColorMatrix = {
-    R: [[0,94],[126,66],[127,77],[128,86],[160,207],[191,254],[223,247],[255,182]],
-    G: [[0,79],[126,138],[127,163],[128,173],[160,236],[191,235],[223,137],[255,28]],
-    B: [[0,162],[126,181],[127,177],[128,174],[160,158],[191,159],[223,81],[255,71]]
-};
-var _geoColorMatrix = {
-    R: [[0,10],[126,73],[127,109],[128,29],[160,107],[191,254],[223,207],[255,67]],
-    G: [[0,0],[126,186],[127,219],[128,160],[160,138],[191,245],[223,131],[255,40]],
-    B: [[0,79],[126,184],[127,184],[128,108],[160,44],[191,176],[223,55],[255,19]]
-};
-var _grayColorMatrix = {
-    R: [[0,0],[255,255]],
-    G: [[0,0],[255,255]],
-    B: [[0,0],[255,255]]
-};
+const userConfig={amplitude:1,amplitudeCoef:0.5,elevation:1,frequency:0.5,frequencyCoef:0.5,seed:false,step:false,stepValue:20}
 
-var STYLE = {
-    REALISTIC: 0,
-    HEATMAP: 1,
-    GEOLOGIC: 2,
-    GRAY: 3
-};
-
-function Colorizer(mapStyle) {
-    this._colorMatrix = null;
-    switch (mapStyle) {
-        case STYLE.REALISTIC:
-            this._colorMatrix = _realColorMatrix;
-            break;
-        case STYLE.HEATMAP:
-            this._colorMatrix = _heatColorMatrix;
-            break;
-        case STYLE.GEOLOGIC:
-            this._colorMatrix = _geoColorMatrix;
-            break;
-        case STYLE.GRAY:
-        default:
-            this._colorMatrix = _grayColorMatrix;
-            break;
-    };
-};
-Colorizer.prototype = {
-    getColor: function (value) {
-        var r = this._interpolate(value*255, this._colorMatrix.R);
-        var g = this._interpolate(value*255, this._colorMatrix.G);
-        var b = this._interpolate(value*255, this._colorMatrix.B);
-        return "rgb(" + r + "," + g + "," + b + ")";
-    },
-
-    _interpolate: function (t, colorArray) {
-        for (var i = 0; i < colorArray.length; i++) {
-            if (t == colorArray[i][0]) {
-                return colorArray[i][1];
-            }
-            if (t < colorArray[i][0]) {
-                var prev = colorArray[i-1];
-                var next = colorArray[i];
-                return Math.floor(scale(t, prev[0], next[0], prev[1], next[1]));
-            }
-        }
-        return array[array.length-1][1];
-    }
-}
-"use strict";
-
-var DOM = {
-    mapConfig: null,
-    stepToggle: null,
-    stepInput: null,
-    seedInput: null,
-    styleConfig: null,
-    shadowToggle: null,
-    buttonStart: null,
-    buttonReset: null
-};
-
-var canvas, ctx, generator, map;
-
-window.onload = function () {
-    canvas = document.getElementById("canvas");
-    ctx = canvas.getContext("2d");
-
-    generator = new MapGenerator();
-
-    initDOM();
-    initListener();
-    startMapCreation();
-}
-
-function initDOM() {
-    DOM.mapConfig = document.getElementsByName("map_config");
-    DOM.stepToggle = document.getElementById("step_checkbox");
-    DOM.stepInput = document.getElementById("step_input");
-    DOM.seedInput = document.getElementById("seed_input");
-    DOM.styleConfig = document.getElementById("style_config");
-    DOM.shadowToggle = document.getElementById("shadow_checkbox");
-    DOM.buttonStart = document.getElementById("start");
-    DOM.buttonReset = document.getElementById("reset");
-}
-
-function initListener() {
-    for (let i = 0; i < DOM.mapConfig.length; i++) {
-        DOM.mapConfig[i].addEventListener("change", createHeightmap, false);
-    }
-
-    DOM.stepToggle.addEventListener("change", createHeightmap, false);
-    DOM.stepInput.addEventListener("change", function (e) {
-        if(DOM.stepToggle.checked){
-            createHeightmap();
-        }
-    }, false);
-
-    DOM.styleConfig.addEventListener("change", drawMap, false);
-    DOM.shadowToggle.addEventListener("change", drawMap, false);
-
-    DOM.buttonStart.addEventListener("click", startMapCreation, false);
-    DOM.buttonReset.addEventListener("click", resetUserParam, false);
-}
-
-function startMapCreation() {
-    generator.setSeed(DOM.seedInput.value);
-    createHeightmap();
-}
-
-function createHeightmap() {
-    let userConfig = getUserConfig();
-    map = generator.createMap(250,250, userConfig);
-
-    map.scaleValues(userConfig.elevation);
-    if (userConfig.step) {
-        map.stepValues(userConfig.stepValue);
-    }
-    drawMap();
-}
-
-function drawMap() {
-    let userStyle = getUserStyle();
-    map.draw(ctx, canvas.width, canvas.height, userStyle.style, userStyle.shadow);
-}
-
-function getUserConfig() {
-    let config = {
-        amplitude: 1,
-        amplitudeCoef: parseFloat(DOM.mapConfig[0].value),
-        frequency: parseFloat(DOM.mapConfig[1].value),
-        frequencyCoef: parseFloat(DOM.mapConfig[2].value),
-        elevation: parseFloat(DOM.mapConfig[3].value),
-        step: DOM.stepToggle.checked,
-        stepValue: parseInt(DOM.stepInput.value),
-        seed: DOM.seedInput.value.length > 0 ? DOM.seedInput.value : false
-    };
-    return config;
-}
-
-function getUserStyle() {
-    let style = "";
-    for (let i = 0; i < DOM.styleConfig.length; i++) {
-        if(DOM.styleConfig[i].checked) {
-            style = DOM.styleConfig[i].value;
-        }
-    }
-    switch (style) {
-        case "real":
-            style = STYLE.REALISTIC;
-            break;
-        case "geo":
-            style = STYLE.GEOLOGIC;
-            break;
-        case "heat":
-            style = STYLE.HEATMAP;
-            break;
-        case "gray":
-            style = STYLE.GRAY;
-            break;
-    }
-
-    let shadow = DOM.shadowToggle.checked;
-    return {
-        style: style,
-        shadow: shadow
-    };
-}
-
-function resetUserParam() {
-    DOM.mapConfig[0].value = 0.5;
-    DOM.mapConfig[1].value = 0.5;
-    DOM.mapConfig[2].value = 0.5;
-    DOM.mapConfig[3].value = 1;
-    DOM.stepToggle.checked = false;
-    // DOM.stepInput.value = 20;
-    createHeightmap();
-}
+test("Get map value", () => {
+    const generator = new MapGenerator();
+    generator.setSeed(1)
+    const map = generator.createMap(250,250, userConfig);
+    expect(map.get(1,1)).toBe(0.3939114918689095);
+});
 
 
-module.exports = MapGenerator
+test("Seed changes map", () => {
+    const generator = new MapGenerator();
+    generator.setSeed(1)
+    const map = generator.createMap(250,250, userConfig);
+    generator.setSeed(2)
+    const map2 = generator.createMap(250,250, userConfig);
+    expect(map.data).not.toBe(map2.data);
+});
